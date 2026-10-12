@@ -1,0 +1,6 @@
+.mode-switch{display:flex;gap:8px;padding:10px 16px;background:#101215;border-bottom:1px solid #363b42}
+.mode-switch button{font-size:11px;font-weight:700;letter-spacing:.04em}
+.mode-switch button.active{background:#168ca4;color:#fff;border-color:#30b9d2}
+.workspace.manual-library{grid-template-columns:minmax(0,1fr)}
+.workspace.manual-library .browser{max-height:min(52vh,560px)}
+@media(max-width:650px){.mode-switch{position:sticky;top:0;z-index:5}.mode-switch button{flex:1;padding:10px 6px}.workspace.manual-library .browser{max-height:55vh}}

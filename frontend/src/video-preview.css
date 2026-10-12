@@ -1,0 +1,5 @@
+/* Keep the picture visible at every breakpoint, including tablet widths. */
+.manual-mixer .manual-deck video{display:block;grid-column:1/-1;grid-row:auto;width:100%;height:auto;aspect-ratio:16/9;max-height:300px;object-fit:contain;background:#000}
+.manual-mixer .manual-deck .record{grid-row:auto;grid-column:1;width:110px;height:110px}
+.manual-mixer .manual-deck .deck-clock{grid-row:auto;grid-column:2;align-self:center}
+@media(max-width:950px) and (min-width:701px){.manual-mixer .manual-deck .deck-clock{grid-column:1}}

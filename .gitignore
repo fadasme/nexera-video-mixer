@@ -1,0 +1,22 @@
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+*.py[cod]
+
+# Frontend generated files
+frontend/node_modules/
+frontend/dist/
+
+# Local configuration and YouTube credentials/session cookies
+.env
+.env.*
+!.env.example
+*cookies*.txt
+cookies.txt
+
+# Downloaded media, user uploads, and rendered mixes (do not publish these)
+media/
+output/
+data/projects/
+logs/

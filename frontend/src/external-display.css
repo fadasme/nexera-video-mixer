@@ -1,0 +1,19 @@
+.external-display{height:100dvh;min-height:100dvh;display:flex;flex-direction:column;background:#050608;color:#f5f7fa;overflow:hidden}
+.external-display>header{flex:0 0 54px;height:54px;display:flex;gap:18px;padding:0 18px;background:#10151b;border-bottom:1px solid #303844}
+.external-display>header .brand{flex:1;font-size:13px;font-weight:800;letter-spacing:1px}
+.external-display>header>span{font-size:10px;letter-spacing:1.5px;color:#a8b5c4}
+.external-display>header button{font-size:10px}
+.external-stage{position:relative;isolation:isolate;flex:1;min-height:0;overflow:hidden;background:#000}
+.output-deck{position:absolute;inset:0;background:#000;opacity:1}
+.output-deck.is-transitioning{animation:program-cut-in .32s ease-out both}
+@keyframes program-cut-in{0%{opacity:0;filter:brightness(.35)}55%{opacity:.72;filter:brightness(.8)}100%{opacity:1;filter:brightness(1)}}
+.output-deck video,.render-output{width:100%;height:100%;object-fit:contain;background:#000}
+.output-label{position:absolute;left:20px;bottom:18px;max-width:calc(100% - 40px);padding:8px 12px;border-radius:4px;background:#000a;color:#fff;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.output-empty{width:100%;height:100%;display:grid;place-content:center;text-align:center;color:#667281;font-size:20px;letter-spacing:2px}
+.output-empty small{margin-top:12px;font-size:13px;letter-spacing:0}
+.output-help{position:absolute;inset:0;display:grid;align-content:center;justify-items:center;gap:14px;padding:24px;text-align:center;color:#f0f2f5;font-size:22px;background:#080a0caa;pointer-events:none}
+.output-help small{color:#a7b2bf;font-size:13px}
+.external-display>footer{flex:0 0 42px;min-height:42px;height:42px;justify-content:center;gap:14px;background:#10151b;border-top:1px solid #303844;color:#b7c4d3}
+.external-display>footer>div{width:min(240px,45vw);height:5px;border-radius:4px;background:#26313c;overflow:hidden}
+.external-display>footer i{display:block;height:100%;background:linear-gradient(90deg,#35bff0,#f25b63)}
+@media(max-width:600px){.external-display>header{gap:8px;padding:0 10px}.external-display>header .brand{font-size:10px}.external-display>header>span{display:none}.external-display>header button{font-size:9px;padding:6px}.output-label{left:8px;bottom:8px;font-size:10px}}
