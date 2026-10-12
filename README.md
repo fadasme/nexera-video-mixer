@@ -61,4 +61,10 @@ El directorio `media/` contiene descargas/cargas locales y `output/` contiene re
 
 ## Despliegue
 
-El frontend se compila con `npm run build`; FastAPI se sirve con Uvicorn. El VPS requiere sus propias dependencias de sistema (`ffmpeg`/`ffprobe`) y configuración del servicio. Mantén credenciales y archivos `.env` fuera de Git. El despliegue no copia la biblioteca de medios local.
+El frontend se compila con `npm run build`; `server.py` sirve `frontend/dist` y monta la API FastAPI bajo el mismo origen. En el VPS se puede iniciar con:
+
+```bash
+uvicorn server:app --host 127.0.0.1 --port 8093 --workers 1
+```
+
+El VPS requiere sus propias dependencias de sistema (`ffmpeg`/`ffprobe`) y un servicio de sistema con permisos de escritura para `data/`, `media/`, `output/` y `logs/`. Mantén credenciales y archivos `.env` fuera de Git. El despliegue no copia la biblioteca de medios local, y YouTube puede bloquear descargas desde la IP del VPS aunque la app esté operativa.
