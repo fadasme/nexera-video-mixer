@@ -82,3 +82,5 @@ uvicorn server:app --host 127.0.0.1 --port 8093 --workers 1
 ```
 
 El VPS requiere sus propias dependencias de sistema (`ffmpeg`/`ffprobe`) y un servicio de sistema con permisos de escritura para `data/`, `media/`, `output/` y `logs/`. Mantén credenciales y archivos `.env` fuera de Git. El despliegue no copia la biblioteca de medios local, y YouTube puede bloquear descargas desde la IP del VPS aunque la app esté operativa.
+
+Para publicar el mixer de forma segura en `https://mixer.nexera.cl`, crea primero un registro DNS A `mixer` apuntando a la IP del VPS. Instala temporalmente `deploy/nginx/mixer-http-challenge.conf` en Nginx y valida la configuración; ese host responde 404 salvo el desafío ACME, así no se envía el login por HTTP. Cuando el DNS ya resuelva, solicita el certificado con Certbot usando el webroot `/var/lib/letsencrypt`, instala `deploy/nginx/mixer.nexera.cl.conf` y recarga Nginx. La redirección HTTP→HTTPS queda configurada y el servicio Nexera continúa escuchando solo en `127.0.0.1:8093`.
