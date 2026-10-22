@@ -10,6 +10,7 @@ import './layout-fix.css';
 import './modes.css';
 import './compact-console.css';
 import './auth.css';
+import YoutubePlayerPreview from './YoutubePlayerPreview';
 const LIBRARY_STORAGE_KEY='nexera-youtube-library-v1';
 function readSavedLibrary(userId){
  try{
@@ -89,7 +90,7 @@ function MixerApp({authUser,onLogout}){
    finally{B(false)}
  }
  async function generate(){B(true);try{const j=await api('/renders',{ids:chosen.map(x=>x.id),duration:Number(duration),aspect});J(j);S(j.message)}catch(e){S(e.message);B(false)}}
- function addToDeck(deck,track){const setQueue=deck==='A'?setQueueA:setQueueB;const current=deck==='A'?deckA:deckB;if(!current){(deck==='A'?setDeckA:setDeckB)(track);return}setQueue(q=>!q.some(item=>item.id===track.id)?[...q,track]:q)}
+ function addToDeck(deck,track){const setQueue=deck==='A'?setQueueA:setQueueB;const current=deck==='A'?deckA:deckB;const youtubeTrack={...track,provider:'youtube'};if(!current){(deck==='A'?setDeckA:setDeckB)(youtubeTrack);return}setQueue(q=>!q.some(item=>item.id===track.id)?[...q,youtubeTrack]:q)}
  function advanceDeck(deck,index=0){
    const queue=deck==='A'?queueA:queueB;
    const next=queue[index];if(!next)return;
@@ -127,4 +128,6 @@ function App(){
  if(!user)return <LoginScreen onLogin={U}/>;
  return new URLSearchParams(window.location.search).has('output')?<ExternalDisplay/>:<MixerApp authUser={user} onLogout={logout}/>;
 }
-createRoot(document.getElementById('root')).render(<App/>);
+const root=createRoot(document.getElementById('root'));
+if(import.meta.env.DEV&&new URLSearchParams(window.location.search).get('youtube-preview')==='1')root.render(<YoutubePlayerPreview/>);
+else root.render(<App/>);

@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import './mixer.css';
 import MidiPanel from './MidiPanel';
+import YoutubePlayer from './YoutubePlayer';
 
 const clock = n => `${Math.floor(n/60)}:${String(Math.floor(n%60)).padStart(2,'0')}`;
 
@@ -26,6 +27,10 @@ function Deck({name, gain, track, command, volume, queue=[], onVolume, onOutputU
     loopRef.current={in:null,out:null,active:false};setLoop(loopRef.current);
     let stopped=false, timer;
     player.current?.pause();setSource(null);setDuration(0);setPosition(0);setPlaying(false);setError('');
+    if(track.provider==='youtube'||track.kind==='youtube'){
+      setSource({kind:'youtube',id:track.id,name:track.title});setPreparing('');
+      return()=>{if(token===request.current)request.current++};
+    }
     setPreparing('Descargando '+track.title+'…');
     async function poll(first=false){
       try {
@@ -44,7 +49,7 @@ function Deck({name, gain, track, command, volume, queue=[], onVolume, onOutputU
     return()=>{stopped=true;clearTimeout(timer);};
   },[track]);
   useEffect(()=>{ if(player.current) player.current.volume=volume*gain; },[volume,gain,source]);
-  useEffect(()=>()=>{if(source) URL.revokeObjectURL(source.url);},[source]);
+  useEffect(()=>()=>{if(source?.url) URL.revokeObjectURL(source.url);},[source]);
   function load(file) {
     if(!file)return;
     request.current++;setPreparing('');
@@ -69,12 +74,16 @@ function Deck({name, gain, track, command, volume, queue=[], onVolume, onOutputU
     if(command.type==='cue')seek(0);
     if(command.type==='seek')seek(Math.max(0,Math.min(duration,position+command.delta)));
     if(command.type==='volume')onVolume(command.value===undefined?v=>Math.max(0,Math.min(1,v+command.delta)):command.value/127);
-    if(command.type==='pitch')setRate(command.value===undefined?v=>Math.max(.5,Math.min(1.5,v+command.delta)):.8+command.value/127*.4);
+    if(command.type==='pitch'){
+      if(source.kind==='youtube')setError('Pitch no está disponible para videos incrustados de YouTube. Usa un archivo local.');
+      else setRate(command.value===undefined?v=>Math.max(.5,Math.min(1.5,v+command.delta)):.8+command.value/127*.4);
+    }
     if(command.type==='jog'){
       const offset=Number(command.value)-64;
       if(offset!==0){const step=offset*(scratch.current.touching?0.012:0.002);const next=Math.max(0,Math.min(duration,p.currentTime+step));p.currentTime=next;setPosition(next);}
     }
     if(command.type==='jogTouch'){
+      if(source.kind==='youtube'){setError('Scratch no está disponible para videos incrustados de YouTube. Usa un archivo local.');return;}
       if(command.pressed&&!scratch.current.touching){scratch.current={touching:true,resume:!p.paused};setScratching(true);if(!p.paused)p.pause();}
       else if(!command.pressed&&scratch.current.touching){const resume=scratch.current.resume;scratch.current={touching:false,resume:false};setScratching(false);if(resume)p.play().catch(()=>setError('No se pudo reanudar el audio después del scratch.'));}
     }
@@ -82,15 +91,18 @@ function Deck({name, gain, track, command, volume, queue=[], onVolume, onOutputU
     if(command.type==='loopIn'){const next={in:position,out:null,active:false};loopRef.current=next;setLoop(next);}
     if(command.type==='loopOut'){const old=loopRef.current;if(old.in===null||position<=old.in){setError('Pulsa LOOP IN antes de LOOP OUT.');}else{const next={...old,out:position,active:true};loopRef.current=next;setLoop(next);}}
     if(command.type==='deleteCues'){hotCueRef.current={};setHotCues({});const next={in:null,out:null,active:false};loopRef.current=next;setLoop(next);}
-  },[command]);
+  },[command,source]);
   useEffect(()=>{if(player.current)player.current.playbackRate=rate;},[rate,source]);
-  useEffect(()=>{onOutputUpdate(name,{src:source?.url||null,title:source?.name||'',playing,position,duration})},[onOutputUpdate,name,source,playing,position,duration]);
+  useEffect(()=>{onOutputUpdate(name,{src:source?.url||null,provider:source?.kind||null,videoId:source?.id||null,title:source?.name||'',playing,position,duration})},[onOutputUpdate,name,source,playing,position,duration]);
   return <section className={'deck manual-deck deck-'+name}>
     <h2><span>DECK {name}</span><small>{scratching?'SCRATCH':playing?'REPRODUCIENDO':source?'LISTO':'SIN PISTA'}</small></h2>
     {preparing&&<p role="status">{preparing}</p>}
     <label className="file-picker">Cargar música o video en {name}<input aria-label={'Cargar archivo en '+name} type="file" accept="audio/*,video/*" onChange={e=>{load(e.target.files?.[0]);e.target.value='';}}/></label>
     {source&&<p className="track-name">{source.name}</p>}
-    {source?<video ref={player} src={source.url} playsInline preload="metadata" controls
+    {source?.kind==='youtube'?<YoutubePlayer key={source.id} ref={player} videoId={source.id} title={source.name} gain={volume*gain} autoplay={autoplayNext.current}
+      onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>{setPlaying(false);onAdvance?.();}}
+      onTimeUpdate={(now,total)=>{if(total>0&&total!==duration)setDuration(total);setPosition(now);const mark=loopRef.current;if(mark.active&&mark.in!==null&&mark.out!==null&&now>=mark.out)seek(mark.in)}}
+      onError={code=>setError(typeof code==='number'?(code===101||code===150?'Este video no permite reproducción incrustada. Ábrelo en YouTube.':code===153?'YouTube no recibió el origen del mixer; prueba la dirección HTTPS pública.':`YouTube no pudo reproducir este video (código ${code}).`):code)}/>:source?<video ref={player} src={source.url} playsInline preload="metadata" controls
       onLoadedMetadata={()=>{const d=player.current.duration;setDuration(Number.isFinite(d)?d:0);}}
       onTimeUpdate={()=>{const now=player.current.currentTime;setPosition(now);const mark=loopRef.current;if(mark.active&&mark.in!==null&&mark.out!==null&&now>=mark.out)seek(mark.in)}}
       onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>{setPlaying(false);onAdvance?.();}}
@@ -101,7 +113,7 @@ function Deck({name, gain, track, command, volume, queue=[], onVolume, onOutputU
     <div className="manual-buttons"><button disabled={!duration} onClick={toggle}>{playing?'Pausar':'Reproducir'} {name}</button><button disabled={!duration} onClick={()=>{player.current.pause();seek(0);}}>Volver al inicio</button></div>
     <div className="cue-status">CUES {Object.keys(hotCues).length}/8 · LOOP {loop.active?'ACTIVO':loop.in!==null?'MARCADO':'INACTIVO'}</div>
     <label className="deck-volume-control"><span><strong>FADER VOLUMEN {name}</strong><output>{Math.round(volume*100)}%</output></span><input aria-label={'Fader volumen Deck '+name} type="range" min="0" max="1" step="0.01" value={volume} onChange={e=>onVolume(Number(e.target.value))}/></label>
-    {error&&<p role="alert">{error}</p>}
+    {error&&<p role="alert">{error}{source?.kind==='youtube'&&<>{' '}<a href={`https://www.youtube.com/watch?v=${source.id}`} target="_blank" rel="noreferrer">Abrir en YouTube</a></>}</p>}
     <section className="deck-queue" aria-label={'Lista de reproducción Deck '+name}>
       <strong>LISTA DECK {name} · {queue.length} pendientes</strong>
       <p className="queue-current">Actual: {source?.name||'Sin canción cargada'}</p>
@@ -136,6 +148,6 @@ export default function ManualMixer({deckA,deckB,queueA=[],queueB=[],outputChann
     <MidiPanel onAction={action} onCrossfader={setMix} onDeckVolume={(deck,delta)=>setDeckVolumes(v=>({...v,[deck]:Math.max(0,Math.min(1,v[deck]+delta))}))} onUnsupported={id=>setMidiNotice(`${id}: asignación guardada; función aún pendiente en Nexera.`)}/>
     {midiNotice&&<p className="manual-note" role="status">{midiNotice}</p>}
     <div className="decks manual-mixer"><Deck name="A" gain={(1-mix)*masterVolume} track={deckA} queue={queueA} onQueueChange={onQueueA} onAdvance={onAdvanceA} command={commands.A} volume={deckVolumes.A} onVolume={v=>setDeckVolumes(current=>({...current,A:typeof v==='function'?v(current.A):v}))} onOutputUpdate={publishDeck}/><aside className="crossfader"><h3>MEZCLA</h3><label htmlFor="manual-crossfade">A ← Crossfader → B</label><input id="manual-crossfade" type="range" min="0" max="1" step="0.01" value={mix} onChange={e=>setMix(Number(e.target.value))}/><span>A {Math.round((1-mix)*100)}% · B {Math.round(mix*100)}%</span><button onClick={()=>setMix(0.5)}>Centrar</button><label htmlFor="manual-master-volume">VOLUMEN MASTER</label><input id="manual-master-volume" aria-label="Volumen master" type="range" min="0" max="1" step="0.01" value={masterVolume} onChange={e=>setMasterVolume(Number(e.target.value))}/><span>{Math.round(masterVolume*100)}%</span></aside><Deck name="B" gain={mix*masterVolume} track={deckB} queue={queueB} onQueueChange={onQueueB} onAdvance={onAdvanceB} command={commands.B} volume={deckVolumes.B} onVolume={v=>setDeckVolumes(current=>({...current,B:typeof v==='function'?v(current.B):v}))} onOutputUpdate={publishDeck}/></div>
-    <p className="manual-note">El audio de ambos decks sale por tus altavoces. Carga una pista desde la biblioteca o desde tu equipo; la playlist de YouTube sigue disponible para el montaje automático. Algunos controles avanzados del Denon aún no están implementados.</p>
+    <p className="manual-note">YouTube se reproduce en su reproductor oficial: conserva su marca y posibles anuncios, y algunos videos no permiten inserción. Pitch y scratch están disponibles solo para archivos locales. La mezcla automática aún usa preparación de video en el servidor.</p>
   </section>;
 }
