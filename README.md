@@ -48,7 +48,9 @@ npm run build
 
 ## YouTube y datos locales
 
-Las playlists se consultan con `yt-dlp`. YouTube puede limitar o bloquear descargas desde algunas IP de servidores con errores de verificación anti-bot; por eso, para operar desde un notebook, conviene ejecutar el API también en el notebook. No se deben subir cookies de navegador ni sesiones de YouTube al repositorio.
+Las playlists públicas pueden consultarse sin iniciar sesión. Para evitar depender de la extracción HTML de `yt-dlp`, configura `YOUTUBE_API_KEY` con una clave restringida a YouTube Data API v3; Nexera entonces usa la API oficial para leer y paginar la playlist, sin OAuth ni cookies. Si no se configura la clave, se mantiene el lector `yt-dlp` como alternativa. Las playlists privadas requieren OAuth y no se incluyen en este flujo. La lectura de la playlist no garantiza poder descargar los videos: YouTube puede bloquear `yt-dlp` desde ciertas IP de servidores con verificaciones anti-bot.
+
+Guarda `YOUTUBE_API_KEY` como variable de entorno del proceso. No compartas claves ni cookies en GitHub. Restringe la clave a YouTube Data API v3 y, cuando sea posible, a la IP del servidor.
 
 El directorio `media/` contiene descargas/cargas locales y `output/` contiene renders. Ambos se excluyen de Git junto con `data/projects/`, entornos virtuales, dependencias y el build local. Los archivos de medios no se sincronizan entre el notebook y el VPS.
 
