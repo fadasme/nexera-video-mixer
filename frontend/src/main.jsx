@@ -9,10 +9,11 @@ import './video-preview.css';
 import './layout-fix.css';
 import './modes.css';
 import './compact-console.css';
+import './auth.css';
 const LIBRARY_STORAGE_KEY='nexera-youtube-library-v1';
-function readSavedLibrary(){
+function readSavedLibrary(userId){
  try{
-   const saved=JSON.parse(localStorage.getItem(LIBRARY_STORAGE_KEY)||'{}');
+   const saved=JSON.parse(localStorage.getItem(`${LIBRARY_STORAGE_KEY}:${userId}`)||'{}');
    return {items:Array.isArray(saved.items)?saved.items:[],sources:Array.isArray(saved.sources)?saved.sources:[]};
  }catch{return {items:[],sources:[]}}
 }
@@ -32,20 +33,33 @@ function normalizePlaylistUrl(raw){
 async function api(path,body){
  const r=await fetch('/api'+path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});
  let d;try{d=await r.json()}catch{throw Error('API no disponible. Comprueba Uvicorn.')}
- if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'Solicitud inválida');return d;
+ if(!r.ok){const error=Error(typeof d.detail==='string'?d.detail:'Solicitud inválida');error.status=r.status;throw error}return d;
 }
-function MixerApp(){
+function LoginScreen({onLogin}){
+ const [username,U]=useState(''),[password,P]=useState(''),[error,E]=useState(''),[busy,B]=useState(false);
+ async function submit(event){event.preventDefault();B(true);E('');try{const result=await api('/auth/login',{username,password});onLogin(result.user)}catch(e){E(e.message)}finally{B(false)}}
+ return <main className="auth-shell"><form className="auth-card" onSubmit={submit}><div className="brand">✦ NEXERA VIDEO MIXER</div><h1>Iniciar sesión</h1><p>Ingresa con tu usuario de Nexera.</p><label>Usuario<input autoComplete="username" value={username} onChange={e=>U(e.target.value)} required autoFocus/></label><label>Contraseña<input type="password" autoComplete="current-password" value={password} onChange={e=>P(e.target.value)} required/></label>{error&&<p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" disabled={busy}>{busy?'Ingresando…':'Iniciar sesión'}</button></form></main>
+}
+function AdminUsers({onBack}){
+ const [users,U]=useState([]),[username,N]=useState(''),[password,P]=useState(''),[error,E]=useState(''),[message,M]=useState(''),[busy,B]=useState(false);
+ async function refresh(){try{const result=await api('/admin/users');U(result.users);E('')}catch(e){E(e.message)}}
+ useEffect(()=>{refresh()},[]);
+ async function create(event){event.preventDefault();B(true);E('');M('');try{await api('/admin/users',{username,password});N('');P('');M('Usuario creado.');await refresh()}catch(e){E(e.message)}finally{B(false)}}
+ return <section className="admin-panel"><div className="admin-heading"><div><p className="section-title">ADMINISTRACIÓN</p><h1>Usuarios de Nexera</h1></div><button onClick={onBack}>Volver al mixer</button></div><form className="admin-create" onSubmit={create}><h2>Crear usuario</h2><label>Nombre de usuario<input minLength="3" maxLength="40" autoComplete="off" value={username} onChange={e=>N(e.target.value)} required/></label><label>Contraseña inicial<input type="password" minLength="12" maxLength="256" autoComplete="new-password" value={password} onChange={e=>P(e.target.value)} required/><small>Mínimo 12 caracteres; comunícala al usuario de forma segura.</small></label>{error&&<p className="auth-error" role="alert">{error}</p>}{message&&<p className="auth-success" role="status">{message}</p>}<button className="auth-submit" disabled={busy}>{busy?'Creando…':'Crear cuenta de usuario'}</button></form><div className="admin-list"><h2>Cuentas existentes</h2>{users.map(item=><div className="admin-user" key={item.id}><span>{item.username}</span><span>{item.role==='admin'?'Administrador':'Usuario'}</span><span>{item.active?'Activa':'Desactivada'}</span></div>)}</div></section>
+}
+function MixerApp({authUser,onLogout}){
  const [deckA,setDeckA]=useState(null),[deckB,setDeckB]=useState(null),[queueA,setQueueA]=useState([]),[queueB,setQueueB]=useState([]);
  const [mode,setMode]=useState('manual');
  const [url,U]=useState('https://www.youtube.com/playlist?list=PLeaHQ62DeBe0');
- const [savedLibrary]=useState(readSavedLibrary);
+ const [savedLibrary]=useState(()=>readSavedLibrary(authUser.id));
+ const [adminMode,setAdminMode]=useState(false);
  const [playlistOpen,setPlaylistOpen]=useState(false);
  const [items,I]=useState(savedLibrary.items),[sources,SetSources]=useState(savedLibrary.sources),[chosen,C]=useState([]),[query,Q]=useState('');
  const [status,S]=useState('Carga una playlist'),[busy,B]=useState(false),[job,J]=useState(null),[duration,D]=useState(60),[aspect,A]=useState('16:9');
  const [outputChannel]=useState(()=>typeof BroadcastChannel==='undefined'?null:new BroadcastChannel('nexera-video-output'));
  useEffect(()=>{
-   try{localStorage.setItem(LIBRARY_STORAGE_KEY,JSON.stringify({items,sources}))}catch{}
- },[items,sources]);
+   try{localStorage.setItem(`${LIBRARY_STORAGE_KEY}:${authUser.id}`,JSON.stringify({items,sources}))}catch{}
+ },[items,sources,authUser.id]);
  useEffect(()=>()=>outputChannel?.close(),[outputChannel]);
  useEffect(()=>{
    if(!outputChannel)return;
@@ -97,11 +111,20 @@ function MixerApp(){
  <button className="generate" disabled={busy||!chosen.length||duration<1||duration>600} onClick={generate}>{busy?'PROCESANDO…':!chosen.length?'AGREGA CANCIONES PARA GENERAR':'GENERAR MEZCLA'}</button>
  </section>;
  return <main>
- <header><div className="brand">✦ NEXERA VIDEO MIXER</div><div className="project">{mode==='manual'?'Mixer manual':'Montaje automático'}</div><button className="external-output-button" onClick={openOutput}>ABRIR SALIDA EXTERNA</button>{mode==='automatic'&&job?.status==='complete'&&<a href={'/api/renders/'+job.id+'/video'} download="nexera.mp4">DESCARGAR MP4</a>}</header>
+ <header><div className="brand">✦ NEXERA VIDEO MIXER</div><div className="project">{mode==='manual'?'Mixer manual':'Montaje automático'}</div><span className="session-user">{authUser.username} · {authUser.role==='admin'?'Administrador':'Usuario'}</span>{authUser.role==='admin'&&<button onClick={()=>setAdminMode(true)}>Administrar usuarios</button>}<button onClick={onLogout}>Cerrar sesión</button><button className="external-output-button" onClick={openOutput}>ABRIR SALIDA EXTERNA</button>{mode==='automatic'&&job?.status==='complete'&&<a href={'/api/renders/'+job.id+'/video'} download="nexera.mp4">DESCARGAR MP4</a>}</header>
+ {adminMode?<AdminUsers onBack={()=>setAdminMode(false)}/>:<>
  <nav className="mode-switch" aria-label="Modo de trabajo"><button className={mode==='manual'?'active':''} aria-pressed={mode==='manual'} onClick={()=>setMode('manual')}>MIXER MANUAL</button><button className={mode==='automatic'?'active':''} aria-pressed={mode==='automatic'} onClick={()=>setMode('automatic')}>MEZCLA AUTOMÁTICA</button></nav>
  {mode==='manual'?<div className="performance-layout"><ManualMixer deckA={deckA} deckB={deckB} queueA={queueA} queueB={queueB} onQueueA={setQueueA} onQueueB={setQueueB} onAdvanceA={index=>advanceDeck('A',index)} onAdvanceB={index=>advanceDeck('B',index)} outputChannel={outputChannel}/><div className="workspace manual-library">{library}</div></div>:<div className="workspace automatic-workspace">{library}{automaticTimeline}</div>}
  {mode==='automatic'&&job?.status==='complete'&&<section className="render-preview"><div className="section-title">ÚLTIMO MONTAJE</div><video controls src={'/api/renders/'+job.id+'/video'} style={{width:'100%',maxHeight:260}}/></section>}
- <footer><span role="status">{status}</span></footer></main>
+ <footer><span role="status">{status}</span></footer></> }</main>
 }
-function App(){return new URLSearchParams(window.location.search).has('output')?<ExternalDisplay/>:<MixerApp/>}
+function App(){
+ const [user,U]=useState(null),[state,S]=useState('loading'),[error,E]=useState('');
+ useEffect(()=>{api('/auth/me').then(result=>{U(result.user);S('ready')}).catch(e=>{if(e.status===401){S('ready')}else{E(e.message);S('error')}})},[]);
+ async function logout(){try{await api('/auth/logout',{})}finally{U(null)}}
+ if(state==='loading')return <main className="auth-shell"><p>Comprobando sesión…</p></main>;
+ if(state==='error')return <main className="auth-shell"><section className="auth-card"><h1>No se pudo conectar</h1><p>{error}</p><button onClick={()=>window.location.reload()}>Reintentar</button></section></main>;
+ if(!user)return <LoginScreen onLogin={U}/>;
+ return new URLSearchParams(window.location.search).has('output')?<ExternalDisplay/>:<MixerApp authUser={user} onLogout={logout}/>;
+}
 createRoot(document.getElementById('root')).render(<App/>);

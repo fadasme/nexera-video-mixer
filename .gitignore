@@ -19,4 +19,5 @@ cookies.txt
 media/
 output/
 data/projects/
+data/auth.sqlite3*
 logs/

@@ -54,6 +54,18 @@ Guarda `YOUTUBE_API_KEY` como variable de entorno del proceso. No compartas clav
 
 El directorio `media/` contiene descargas/cargas locales y `output/` contiene renders. Ambos se excluyen de Git junto con `data/projects/`, entornos virtuales, dependencias y el build local. Los archivos de medios no se sincronizan entre el notebook y el VPS.
 
+## Inicio de sesión y roles
+
+Todo el uso del mixer requiere una sesión de Nexera; `/api/health` permanece público para supervisión. El rol **Administrador** puede crear cuentas **Usuario** desde el botón “Administrar usuarios”. Los dos roles pueden usar el mixer y cargar playlists públicas; no hay inicio de sesión ni conexión de cuentas de YouTube.
+
+No hay credenciales predeterminadas. Para crear el primer administrador, ejecuta el CLI de forma interactiva como el mismo usuario del sistema que ejecuta el servicio (la contraseña se solicita sin eco):
+
+```bash
+sudo -u nexera-mixer /opt/nexera-video-mixer/.venv/bin/python -m services.auth_cli
+```
+
+Después inicia sesión como administrador y crea la cuenta de usuario desde la app. Las contraseñas se almacenan con scrypt, las sesiones son revocables y vencen a las 12 horas; el archivo SQLite de autenticación queda excluido de Git. Mantén `NEXERA_COOKIE_SECURE` activado en producción con HTTPS. Para desarrollo HTTP local puedes definir `NEXERA_COOKIE_SECURE=false` antes de iniciar Uvicorn.
+
 ## Endpoints principales
 
 - `GET /api/health`
